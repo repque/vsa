@@ -122,4 +122,5 @@ def make_predictions( stocks, file_name='C:/Users/gera/vsa.sav' ):
         features = make_features( current, with_label = False )
         result = model.predict(features)[-1]
         if result:
-            yield ticker
+            proba = round(model.predict_proba(features)[-1][-1], 2)
+            yield proba, ticker
