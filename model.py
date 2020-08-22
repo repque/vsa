@@ -1,7 +1,18 @@
 from data import get_historical_data, compress_data
 from features import make_features
 
-stocks=['AMD', 'HAL', 'APA', 'CL', 'AAPL', 'KLAC', 'GS', 'BAC', 'PG', 'NVDA', 'AMZN', 'LUV', 'LMT', 'GD', 'T', 'BIIB', 'AMGN', 'ALXN', 'ODFL', 'HD', 'KO', 'JNJ', 'MMM', 'KGC', 'NEM', 'CI', 'UNH', 'CVS']
+stocks = ['AA', 'AAL', 'AAPL', 'ABBV', 'ABT', 'ADBE', 'ADI', 'ADM', 'AEO', 'AEP', 'AES', 'AFL', 'AGNC', 'AIG', 'AKER', 'ALKS', 'ALLY', 'AMAT', 'AMD', 'AMZN', 'ANF', 'APA', 'APPS', 'ARMK', 'ATI', 'ATVI', 
+          'AXP', 'BA', 'BAC', 'BAX', 'BBBY', 'BBY', 'BEN', 'BERY', 'BK', 'BKE', 'BMRN', 'BMY', 'BSX', 'BX', 'C', 'CAG', 'CALM', 'CAT', 'CCL', 'CDE', 'CFG', 'CL', 'CLF', 'CMCSA', 'CNC', 'CNK', 'CNP', 
+          'COG', 'COP', 'CORT', 'Cost', 'CPB', 'CPE', 'CRM', 'CSCO', 'CSX', 'CTL', 'CTSH', 'CVS', 'CVX', 'CWH', 'D', 'DAL', 'DD', 'DDD', 'DE', 'DELL', 'DFS', 'DHI', 'DIS', 'DISCA', 'DISH', 'DLPH', 
+          'DOCU', 'DOW', 'DRI', 'DUK', 'DVAX', 'DVN', 'EBAY', 'ED', 'EIX', 'EL', 'EMR', 'EOG', 'EPD', 'EQT', 'ETFC', 'ETSY', 'EVH', 'EXC', 'EXPE', 'EXPI', 'F', 'FANG', 'FB', 'FCX', 'FDX', 'FE', 
+          'FEYE', 'FIS', 'FISV', 'FIT', 'FITB', 'FL', 'FLR', 'FNB', 'FTI', 'GDDY', 'GE', 'GEL', 'GILD', 'GLUU', 'GLW', 'GM', 'GME', 'GOLD', 'GPS', 'GRPN', 'GRUB', 'GT', 'HAL', 'HBAN', 'HBI', 
+          'HD', 'HFC', 'HLT', 'HOME', 'HON', 'HP', 'HPE', 'HPQ', 'HRB', 'HSIC', 'HST', 'HUN', 'IBM', 'ICE', 'INCY', 'INTC', 'IP', 'IPG', 'JBLU', 'JCI', 'JNJ', 'JNPR', 'JPM', 'JWN', 'KEY', 
+          'KEYS', 'KGC', 'KHC', 'KIM', 'KIRK', 'KKR', 'KLAC', 'KMI', 'KO', 'KR', 'KSS', 'LB', 'LEN', 'LKQ', 'LLY', 'LOW', 'LRCX', 'LUV', 'M', 'MA', 'Mac', 'MAR', 'MCD', 'MCHP', 'MDT', 'MGM', 'MIK', 'MMC', 'MMM',
+          'MO', 'MOBL', 'MOS', 'MPC', 'MRK', 'MRO', 'MRVL', 'MS', 'MSFT', 'MTCH', 'MU', 'MUR', 'MXIM', 'MYL', 'NBL', 'NCLH', 'NEM', 'NFLX', 'NI', 'NKE', 'NLSN', 'NOV', 'NOW', 'NRZ', 'NTAP', 'NUAN', 
+          'NVAX', 'NVDA', 'NWL', 'OKE', 'OLN', 'ON', 'ORCL', 'OSTK', 'OXY', 'PBCT', 'PBF', 'PCG', 'PE', 'PEB', 'PEG', 'PEP', 'PFE', 'PG', 'PGR', 'PGRE', 'PHM', 'PK', 'PLAY', 'PM', 'PPL', 'PSTG', 'PSX', 
+          'PYPL', 'QCOM', 'QSR', 'RAD', 'RCII', 'RCL', 'RF', 'RLGY', 'ROKU', 'ROST', 'RRC', 'RUN', 'SAVE', 'SBUX', 'SCHW', 'SE', 'SFM', 'SHAK', 'SHO', 'SIRI', 'SLB', 'SLM', 'SLV', 'SNPS', 'SO', 
+          'SPG', 'SPR', 'SQ', 'SRNE', 'SSI', 'STAG', 'STOR', 'STX', 'SYF', 'SYY', 'T', 'TEVA', 'TGT', 'TJX', 'TLRY', 'TMUS', 'TOL', 'TRGP', 'TSLA', 'TTMI', 'TWTR', 'TXN', 'UA', 'UAL', 'UNH', 'UNP', 'UPS', 
+          'USB', 'USFD', 'V', 'VER', 'VLO', 'VNO', 'VZ', 'W', 'WBA', 'WDC', 'WEN', 'WFC', 'WMB', 'WMT', 'WNC', 'WPX', 'WU', 'WY', 'WYNN', 'X', 'XOM', 'XRAY', 'XRX', 'ZION', 'ZNGA']
 
 def train( stocks ):
     data = get_historical_data( stocks )
@@ -120,6 +131,9 @@ def make_predictions( stocks, file_name='C:/Users/gera/vsa.sav' ):
         compressed = compress_data( data[ticker] )
         current = compressed.tail(14)
         features = make_features( current, with_label = False )
+        if len(features) == 0:
+            print( 'Skipping {}'.format( ticker ) )
+            continue
         result = model.predict(features)[-1]
         if result:
             proba = round(model.predict_proba(features)[-1][-1], 2)

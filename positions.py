@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 from tinydb import TinyDB, Query
 import pandas as pd
 
+from data import get_current_price
+
 Pnl = namedtuple('Pnl', ['mtm', 'realized', 'total'])
 
 class Position( object ):
@@ -15,7 +17,7 @@ class Position( object ):
     @classmethod
     def all_open( cls ):
         records = cls.db.all()
-        positions = { Position.load(r['ticker']) for r in records }
+        positions = { Position.load(r['ticker']) for r in records if r['ticker'] not in ['TEST'] }
         return [ p for p in positions if p.is_open ]
 
     @classmethod
@@ -86,7 +88,8 @@ class Position( object ):
                     if row['qty'] != prev['qty']:
                         raise Exception('Quantities do not match: \n{}\n{}'.format( prev, row ))
                     realized_pl = (row['price'] - prev['price']) * row['qty']
-            if price is not None:
-                mtm_pl = (price - prev['price']) * prev['qty']
+            if price is None:
+                price = get_current_price( self.ticker )
+            mtm_pl = (price - prev['price']) * prev['qty']
             total_pl = realized_pl + mtm_pl
         return Pnl( round(mtm_pl, 2), round(realized_pl, 2), round(total_pl, 2) )

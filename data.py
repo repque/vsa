@@ -25,7 +25,7 @@ def last_bday(end_date=None):
     end_date = end_date or datetime.now().date()
     return end_date if is_bday(end_date) else (end_date - BDay(1)).date() # find the last business date
 
-def from_file( ticker, file_name, end=None ):
+def from_file( ticker, file_name, end=None, active=True ):
     ''' loads dataframe from csv file, pads missing most-recent data if any '''
     import pandas as pd
     from pandas.tseries.offsets import BDay
@@ -42,23 +42,38 @@ def from_file( ticker, file_name, end=None ):
         if start < last:
             new_start = (start + BDay(1)).date()
             new_data = get_ticker_data( ticker, new_start.strftime('%Y-%m-%d'), last.strftime('%Y-%m-%d') )
-            combined = pd.concat( [df, new_data], axis=0 )           
-            with atomic_overwrite(file_name) as f:
-                combined.to_csv( f )         
+            if not new_data is None:
+                combined = pd.concat( [df, new_data], axis=0 )           
+                with atomic_overwrite(file_name) as f:
+                    combined.to_csv( f )
+            else:
+                if active:
+                    return None
             
-            df = from_file( ticker, file_name )
+                df = from_file( ticker, file_name )
     return df
 
 def get_ticker_data( ticker, start, end ):
-    import pandas_datareader as web    
-    print('Downloading', ticker, start, end)
-    df = web.DataReader( ticker, 'yahoo', start=start, end=end )    
-    return df
+    import pandas_datareader as web        
+    try:
+        print('Downloading {}: {} - {} ... '.format( ticker, start, end), end='')
+        df = web.DataReader( ticker, 'yahoo', start=start, end=end )
+        print('done')
+        return df
+    except:
+        print('skipped')
 
-def get_current_price( ticker ):
+def get_last_row( ticker ):
+    ''' get last row values for the ticker '''
     end = last_bday()
     data = get_historical_data( [ticker], start=end.strftime('%Y-%m-%d') )[ticker]
-    return data['Close']
+    return data.tail(1)
+
+def get_current_price( ticker ):
+    row = get_last_row( ticker )
+    end = last_bday()
+    data = get_historical_data( [ticker], start=end.strftime('%Y-%m-%d') )[ticker]
+    return row['Close'].values[0]
 
 def get_historical_data( symbols, start='2000-01-01', end=None, folder='D:/dev/db/daily_data' ):
     from datetime import datetime
@@ -73,12 +88,18 @@ def get_historical_data( symbols, start='2000-01-01', end=None, folder='D:/dev/d
     data = {} # returns dict of individual dataframes, one per ticker symbol    
     for ticker in symbols:
         file_name = os.path.join(folder, ticker + ".csv")
-        if os.path.exists(file_name):
-            df = from_file( ticker, file_name, end )
-        else:
-            df = get_ticker_data( ticker, start, end )
-            df.to_csv( file_name )
-        data[ticker] = df
+        try:
+            df = None
+            if os.path.exists(file_name):
+                df = from_file( ticker, file_name, end )
+            else:
+                df = get_ticker_data( ticker, start, end )
+                if not df is None:
+                    df.to_csv( file_name )
+            if not df is None:
+                data[ticker] = df
+        except:
+            continue
     return data
 
 def compress_data( df, res='W' ):
@@ -90,3 +111,16 @@ def compress_data( df, res='W' ):
              'Volume': 'sum'}
 
     return df.resample(res).apply(logic)    
+
+def clean_file( filename ):
+    seen = set()
+    lines = []
+    for line in reversed(list(open(filename))):
+        dt = line.rstrip().split(',')[0]
+        if not dt in seen:
+            seen.add(dt)
+            lines.append( line )
+
+    with atomic_overwrite(filename) as output: 
+        for line in reversed(lines):
+            output.write(line)
