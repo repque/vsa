@@ -4,7 +4,9 @@ import mimetypes
 import os
 import os.path
 import pickle
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient import errors
@@ -55,6 +57,32 @@ def get_service():
     service = build('gmail', 'v1', credentials=creds, cache=MemoryCache())
     return service
 
+def my_tf_color_func(dictionary):
+    def my_tf_color_func_inner(word, font_size, position, orientation, random_state=None, **kwargs):
+        return "hsl(%d, 80%%, 55%%)" % (15 * dictionary[word])
+    return my_tf_color_func_inner
+
+def make_report( pred ):
+    import pandas as pd 
+    import matplotlib.pyplot as plt
+    import tempfile
+    from wordcloud import WordCloud
+    
+    stocks = [ ticker for prob, ticker in pred if prob > 0.98 ]
+    df = pd.read_csv( 'D:/dev/db/stocks.csv' )
+
+    sectors = dict(df[df['Ticker'].isin(stocks)]['Sector'].value_counts())
+    
+    # Create and generate a word cloud image:
+    wc = WordCloud( background_color='black', color_func = my_tf_color_func( sectors ) ).generate_from_frequencies( sectors )
+
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+        wc.to_file(tmpfile.name)
+
+    pred_table = ''.join(['<tr><td>{}</td><td>{}</td></tr>'.format(t,p) for p,t in pred])
+    return '<table>{}</table>'.format(pred_table), tmpfile.name 
+    
+    
 def send_message(service, sender, message):
   """Send an email message.
 
@@ -75,7 +103,7 @@ def send_message(service, sender, message):
   except errors.HttpError as error:
     logging.error('An HTTP error occurred: %s', error)
 
-def create_message(sender, to, subject, message_text):
+def create_message(sender, to, subject, report):
     """Create a message for an email.
 
     Args:
@@ -87,11 +115,22 @@ def create_message(sender, to, subject, message_text):
     Returns:
     An object containing a base64url encoded email object.
     """
-    message = MIMEText(message_text)
-    message['to'] = to
-    message['from'] = sender
-    message['subject'] = subject
-    s = message.as_string()
+    msg = MIMEMultipart()
+    msg["To"] = to
+    msg["From"] = sender
+    msg["Subject"] = subject
+
+    body, attachment = report
+    msgText = MIMEText('<p>%s</p><br><img src="cid:%s"><br>' % (body, attachment), 'html')  
+    msg.attach(msgText)   # Added, and edited the previous line
+
+    with open(attachment, 'rb') as fp:
+        img = MIMEImage(fp.read())
+
+    img.add_header('Content-ID', '<{}>'.format(attachment))
+    msg.attach(img)
+
+    s = msg.as_string()
     b = base64.urlsafe_b64encode(s.encode('utf-8'))
     return {'raw': b.decode('utf-8')}
 
@@ -106,7 +145,7 @@ def send( to='repque@yahoo.com', subject=None, body='hello' ):
             from datetime import datetime
             subject = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         service = get_service()
-        message = create_message("from@gmail.com", to, subject, str(body))
+        message = create_message("from@gmail.com", to, subject, make_report(body))
         send_message(service, "from@gmail.com", message)
 
     except Exception as e:
