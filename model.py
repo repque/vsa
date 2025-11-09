@@ -1,5 +1,10 @@
+from typing import List, Tuple, Generator, Optional, Any
+import pandas as pd
+from sklearn.ensemble import VotingClassifier
+
 from data import get_historical_data, compress_data
 from features import make_features
+from config import MODEL_PATH
 
 stocks = ['AA', 'AAL', 'AAPL', 'ABBV', 'ABT', 'ADBE', 'ADI', 'ADM', 'AEO', 'AEP', 'AES', 'AFL', 'AGNC', 'AIG', 'AKER', 'ALKS', 'ALLY', 'AMAT', 'AMD', 'AMZN', 'ANF', 'APA', 'APPS', 'ARMK', 'ATI', 'ATVI', 
           'AXP', 'BA', 'BAC', 'BAX', 'BBBY', 'BBY', 'BEN', 'BERY', 'BK', 'BKE', 'BMRN', 'BMY', 'BSX', 'BX', 'C', 'CAG', 'CALM', 'CAT', 'CCL', 'CDE', 'CFG', 'CL', 'CLF', 'CMCSA', 'CNC', 'CNK', 'CNP', 
@@ -14,8 +19,16 @@ stocks = ['AA', 'AAL', 'AAPL', 'ABBV', 'ABT', 'ADBE', 'ADI', 'ADM', 'AEO', 'AEP'
           'SPG', 'SPR', 'SQ', 'SRNE', 'SSI', 'STAG', 'STOR', 'STX', 'SYF', 'SYY', 'T', 'TEVA', 'TGT', 'TJX', 'TLRY', 'TMUS', 'TOL', 'TRGP', 'TSLA', 'TTMI', 'TWTR', 'TXN', 'UA', 'UAL', 'UNH', 'UNP', 'UPS', 
           'USB', 'USFD', 'V', 'VER', 'VLO', 'VNO', 'VZ', 'W', 'WBA', 'WDC', 'WEN', 'WFC', 'WMB', 'WMT', 'WNC', 'WPX', 'WU', 'WY', 'WYNN', 'X', 'XOM', 'XRAY', 'XRX', 'ZION', 'ZNGA']
 
-def train( stocks ):
-    data = get_historical_data( stocks )
+def train(stocks: List[str]) -> VotingClassifier:
+    """Train ensemble ML model on stock data.
+
+    Args:
+        stocks: List of stock ticker symbols
+
+    Returns:
+        Trained VotingClassifier ensemble model
+    """
+    data = get_historical_data(stocks)
 
     weekly = {}
     for ticker in data:
@@ -72,15 +85,35 @@ def train( stocks ):
     print( classification_report( y_test, epred ) )
     return eclf
 
-def save( clf, file_name ):
-    import joblib
-    joblib.dump( clf, file_name )
+def save(clf: Any, file_name: str) -> None:
+    """Save trained model to disk.
 
-def load( file_name ):
+    Args:
+        clf: Trained classifier model
+        file_name: Path to save model file
+    """
     import joblib
-    return joblib.load( file_name )
+    joblib.dump(clf, file_name)
 
-def plot( df, title='' ):
+def load(file_name: str) -> Any:
+    """Load trained model from disk.
+
+    Args:
+        file_name: Path to model file
+
+    Returns:
+        Loaded classifier model
+    """
+    import joblib
+    return joblib.load(file_name)
+
+def plot(df: pd.DataFrame, title: str = '') -> None:
+    """Plot candlestick chart with volume and predictions.
+
+    Args:
+        df: DataFrame with OHLCV data
+        title: Chart title
+    """
     import numpy as np
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
@@ -123,9 +156,19 @@ def plot( df, title='' ):
     fig.update(layout_xaxis_rangeslider_visible=False)
     fig.show()
 
-def make_predictions( stocks, file_name='C:/Users/gera/vsa.sav' ):
-    data = get_historical_data( stocks )
-    model = load( file_name )
+def make_predictions(stocks: List[str], file_name: Optional[str] = None) -> Generator[Tuple[float, str], None, None]:
+    """Generate predictions for stocks.
+
+    Args:
+        stocks: List of stock ticker symbols
+        file_name: Path to model file (uses config default if None)
+
+    Yields:
+        Tuple of (probability, ticker) for positive predictions
+    """
+    file_name = file_name or MODEL_PATH
+    data = get_historical_data(stocks)
+    model = load(file_name)
 
     for ticker in data:
         compressed = compress_data( data[ticker] )

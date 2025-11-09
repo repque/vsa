@@ -1,12 +1,21 @@
+from typing import List
+import pandas as pd
 
-def get_ratios( df, periods=10 ):
-    ''' Calculates the following ratios:
-    
+def get_ratios(df: pd.DataFrame, periods: int = 10) -> pd.DataFrame:
+    """Calculates the following ratios:
+
+    Args:
+        df: DataFrame with OHLCV data
+        periods: Number of periods for rolling calculations
+
+    Returns:
+        DataFrame with VSA ratio indicators
+
+    Ratios calculated:
         range_ratio  - how big the bar is compared to the average
         close_ratio  - where was the close in relation to high-low range
         volume_ratio - volume compared to the average
-    '''
-    import pandas as pd
+    """
     
     bar_range  = df['High'] - df['Low']
     # bar range compared to the average
@@ -41,12 +50,17 @@ def get_ratios( df, periods=10 ):
     del df_out['range_ratio']
     return df_out
 
-def get_y( df, offset=4, target=3 ):
-    ''' Calculates both future returns and volatility of returns for specified offset, aka sharpe ratio.
-        Returns True when sharpe ratio exceeds target, otherwise False
-    '''
-    import pandas as pd
-    import numpy as np
+def get_y(df: pd.DataFrame, offset: int = 4, target: int = 3) -> pd.Series:
+    """Calculates binary label for 4 consecutive weeks of price increases.
+
+    Args:
+        df: DataFrame with OHLCV data
+        offset: Offset for returns calculation
+        target: Target threshold
+
+    Returns:
+        Series with binary labels (1 = bullish, 0 = bearish)
+    """
 
     returns = df['Close'].diff(offset)
     y = (df['Close'].diff(1).gt(0) & 
@@ -55,19 +69,38 @@ def get_y( df, offset=4, target=3 ):
          df['Close'].diff(4).gt(0) ) 
     return y.astype(int)
 
-def lagged( df, periods=4, skip=[] ):
+def lagged(df: pd.DataFrame, periods: int = 4, skip: List[str] = None) -> pd.DataFrame:
+    """Add lagged features to DataFrame.
+
+    Args:
+        df: DataFrame with features
+        periods: Number of lagged periods to create
+        skip: List of columns to skip from lagging
+
+    Returns:
+        DataFrame with lagged features added
+    """
+    if skip is None:
+        skip = []
     for c in df.columns:
-        if not c in skip:
-            for p in range(1,periods):
+        if c not in skip:
+            for p in range(1, periods):
                 df[str(c) + '_t_' + str(p)] = df[c].shift(p)
     return df
 
-def make_features( df, with_label=False ):
-    import pandas as pd
-    
-    ratios = get_ratios( df )
+def make_features(df: pd.DataFrame, with_label: bool = False) -> pd.DataFrame:
+    """Create VSA features from OHLCV data.
+
+    Args:
+        df: DataFrame with OHLCV data
+        with_label: Whether to include target labels
+
+    Returns:
+        DataFrame with VSA features and optional labels
+    """
+    ratios = get_ratios(df)
     if with_label:
-        ratios['y']= get_y( df )
-    
+        ratios['y'] = get_y(df)
+
     # add lagging ratios
-    return lagged( ratios, skip=['y'],  periods=5 ).dropna( how='any' )    
+    return lagged(ratios, skip=['y'], periods=5).dropna(how='any')    

@@ -1,7 +1,19 @@
+from typing import Dict, Optional
+from pathlib import Path
+from datetime import date
+import pandas as pd
+import logging
 
-def make_data_folder( folder ):
-    ''' Creates folder if it doesn't exist already '''
-    from pathlib import Path
+from exceptions import DataFetchError
+
+logger = logging.getLogger(__name__)
+
+def make_data_folder(folder: str) -> None:
+    """Creates folder if it doesn't exist already.
+
+    Args:
+        folder: Path to folder to create
+    """
     Path(folder).mkdir(parents=True, exist_ok=True)
 
 import contextlib
@@ -53,15 +65,26 @@ def from_file( ticker, file_name, end=None, active=True ):
                 df = from_file( ticker, file_name )
     return df
 
-def get_ticker_data( ticker, start, end ):
-    import pandas_datareader as web        
+def get_ticker_data(ticker: str, start: str, end: str) -> Optional[pd.DataFrame]:
+    """Fetch ticker data from Yahoo Finance.
+
+    Args:
+        ticker: Stock ticker symbol
+        start: Start date string
+        end: End date string
+
+    Returns:
+        DataFrame with OHLCV data or None if fetch fails
+    """
+    import pandas_datareader as web
     try:
-        print('Downloading {}: {} - {} ... '.format( ticker, start, end), end='')
-        df = web.DataReader( ticker, 'yahoo', start=start, end=end )
-        print('done')
+        logger.info(f'Downloading {ticker}: {start} - {end}')
+        df = web.DataReader(ticker, 'yahoo', start=start, end=end)
+        logger.info(f'{ticker} download complete')
         return df
-    except:
-        print('skipped')
+    except Exception as e:
+        logger.warning(f'Failed to download {ticker}: {str(e)}')
+        return None
 
 def get_last_row( ticker ):
     ''' get last row values for the ticker '''
@@ -75,12 +98,24 @@ def get_current_price( ticker ):
     data = get_historical_data( [ticker], start=end.strftime('%Y-%m-%d') )[ticker]
     return row['Close'].values[0]
 
-def get_historical_data( symbols, start='2000-01-01', end=None, folder='D:/dev/db/daily_data' ):
+def get_historical_data(symbols: list, start: str = '2000-01-01', end: Optional[str] = None, folder: Optional[str] = None) -> Dict[str, pd.DataFrame]:
+    """Fetch historical OHLCV data for symbols with local caching.
+
+    Args:
+        symbols: List of ticker symbols
+        start: Start date in YYYY-MM-DD format
+        end: End date in YYYY-MM-DD format (defaults to today)
+        folder: Cache directory path (uses config default if None)
+
+    Returns:
+        Dictionary mapping ticker symbols to DataFrames
+    """
     from datetime import datetime
-    import pandas as pd
     import os.path
-    
-    make_data_folder( folder )
+    from config import DATA_CACHE_DIR
+
+    folder = folder or DATA_CACHE_DIR
+    make_data_folder(folder)
     
     # end date is today
     end = end or datetime.now().date().strftime('%Y-%m-%d')
@@ -102,12 +137,20 @@ def get_historical_data( symbols, start='2000-01-01', end=None, folder='D:/dev/d
             continue
     return data
 
-def compress_data( df, res='W' ):
-    ''' Can compress daily into weekly (W) or monthly (M) bars '''
+def compress_data(df: pd.DataFrame, res: str = 'W') -> pd.DataFrame:
+    """Compress daily OHLCV data into weekly or monthly bars.
+
+    Args:
+        df: DataFrame with daily OHLCV data
+        res: Resampling resolution ('W' for weekly, 'M' for monthly)
+
+    Returns:
+        DataFrame with compressed OHLCV data
+    """
     logic = {'Open'  : 'first',
              'High'  : 'max',
              'Low'   : 'min',
-             'Close' : 'last',                              
+             'Close' : 'last',
              'Volume': 'sum'}
 
     return df.resample(res).apply(logic)    

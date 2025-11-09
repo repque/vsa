@@ -12,6 +12,7 @@ from google.auth.transport.requests import Request
 from googleapiclient import errors
 from googleapiclient.discovery import build
 from googleapiclient.discovery_cache.base import Cache
+from config import GMAIL_CLIENT_SECRET_PATH, GMAIL_TOKEN_PATH, EMAIL_RECIPIENT, STOCKS_CSV_PATH
 
 class MemoryCache(Cache):
     _CACHE = {}
@@ -39,8 +40,8 @@ def get_service():
     # The file token.pickle stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
     # time.
-    if os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
+    if os.path.exists(GMAIL_TOKEN_PATH):
+        with open(GMAIL_TOKEN_PATH, 'rb') as token:
             creds = pickle.load(token)
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
@@ -48,10 +49,10 @@ def get_service():
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
-                'D:/dev/projects/ml/client_secret.json', SCOPES)
+                GMAIL_CLIENT_SECRET_PATH, SCOPES)
             creds = flow.run_local_server(port=0)
         # Save the credentials for the next run
-        with open('token.pickle', 'wb') as token:
+        with open(GMAIL_TOKEN_PATH, 'wb') as token:
             pickle.dump(creds, token)
 
     service = build('gmail', 'v1', credentials=creds, cache=MemoryCache())
@@ -69,7 +70,7 @@ def make_report( pred ):
     from wordcloud import WordCloud
     
     stocks = [ ticker for prob, ticker in pred if prob > 0.98 ]
-    df = pd.read_csv( 'D:/dev/db/stocks.csv' )
+    df = pd.read_csv( STOCKS_CSV_PATH )
 
     sectors = dict(df[df['Ticker'].isin(stocks)]['Sector'].value_counts())
     
@@ -134,7 +135,8 @@ def create_message(sender, to, subject, report):
     b = base64.urlsafe_b64encode(s.encode('utf-8'))
     return {'raw': b.decode('utf-8')}
 
-def send( to='repque@yahoo.com', subject=None, body='hello' ):
+def send( to=None, subject=None, body='hello' ):
+    to = to or EMAIL_RECIPIENT
     logging.basicConfig(
         format="[%(levelname)s] %(message)s",
         level=logging.INFO
